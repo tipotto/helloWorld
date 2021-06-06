@@ -15,25 +15,73 @@ class AddChannelTableViewController: UITableViewController {
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var nameTextField: UITextField!
     @IBOutlet weak var aboutTextField: UITextView!
-    
+        
     // MARK: - Vars
+    var channelId = UUID().uuidString
+    var avatarLink = ""
     var gallery: GalleryController!
     var tapGesture = UITapGestureRecognizer()
-    var avatarLink = ""
-    var channelId = UUID().uuidString
     
-    var channelToEdit: Channel?
-    
+    var editChannel: JoiningChannel?
+    var channelLangs: [String] = []
+    var channelType: String = ""
+    var channelTheme: String = ""
     
     // MARK: - View Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // segueを使ってMyChannelsTableViewController から遷移している
+        // AddChannelTableViewControllerのインスタンスが生成されているわけではない
+        // ため、初回以外は呼ばれない？
+        print("AddChannelTableViewController viewDidLoad")
+        
         navigationItem.largeTitleDisplayMode = .never
         tableView.tableFooterView = UIView()
+        configureChannelLangs()
         configureGestures()
         configureLeftBarButton()
         configureEditingView()
-        
+    }
+    
+    // MARK: - IBActions
+    @IBAction func selectChannelLangs(_ sender: Any) {
+        let channelLangTVC = ChannelLangTableViewController()
+        channelLangTVC.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(channelLangTVC, animated: true)
+    }
+    
+    @IBAction func selectChannelType(_ sender: Any) {
+        let channelTypeTVC = ChannelTypeTableViewController()
+        channelTypeTVC.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(channelTypeTVC, animated: true)
+    }
+    
+    @IBAction func selectChannelTheme(_ sender: Any) {
+        let channelThemeTVC = ChannelThemeTableViewController()
+        channelThemeTVC.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(channelThemeTVC, animated: true)
+    }
+    
+    private func configureChannelLangs() {
+        let currentUser = User.currentUser!
+        if currentUser.lang == "en" {
+            channelLangs = ["en"]
+            
+        } else {
+            channelLangs = [currentUser.lang, "en"]
+        }
+    }
+    
+    // MARK: - TableView Delegates
+    override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let headerView = UIView()
+        headerView.backgroundColor = UIColor(named: "TableViewBackgroundColor")
+        return headerView
+    }
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
     }
     
     // MARK: - IBActions
@@ -44,7 +92,7 @@ class AddChannelTableViewController: UITableViewController {
             return
         }
         
-        channelToEdit != nil ? editChannel() : saveChannel()
+        editChannel != nil ? edit() : add()
     }
     
     @objc func avatarImageTapped() {
@@ -69,37 +117,44 @@ class AddChannelTableViewController: UITableViewController {
     
     private func configureEditingView() {
         
-        guard let channel = channelToEdit else { return }
+        guard let channel = editChannel else {
+            title = "Add Channel"; return
+        }
         
         title = "Edit Channel"
         channelId = channel.id
         nameTextField.text = channel.name
         aboutTextField.text = channel.aboutChannel
         avatarLink = channel.avatarLink
-        
         setAvater()
-        
     }
-    
+
     // MARK: - Save Channel
-    private func saveChannel() {
-        let channel = Channel(id: channelId, name: nameTextField.text!, adminId: User.currentId, memberIds: [User.currentId], avatarLink: avatarLink, aboutChannel: aboutTextField.text)
+    private func add() {
         
-        // save channel to Firebase
-        FirebaseChannelListener.shared.saveChannel(channel)
+        print("Save new channel")
+        
+        let joiningCh = JoiningChannel(id: channelId,
+                                            name: nameTextField.text!,
+                                            avatarLink: avatarLink,
+                                            aboutChannel: aboutTextField.text,
+                                            isAdmin: true)
+        
+        
+        FirebaseChannelListener.shared.saveChannel(joiningCh: joiningCh)
         
         navigationController?.popViewController(animated: true)
     }
     
-    private func editChannel() {
-        guard var channel = channelToEdit else { return }
+    private func edit() {
+        guard var channel = editChannel else { return }
         
         channel.name = nameTextField.text!
         channel.aboutChannel = aboutTextField.text
         channel.avatarLink = avatarLink
         
         // save channel to Firebase
-        FirebaseChannelListener.shared.saveChannel(channel)
+        FirebaseChannelListener.shared.saveChannel(joiningCh: channel)
         
         navigationController?.popViewController(animated: true)
     }

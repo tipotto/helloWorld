@@ -14,20 +14,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var firstRun: Bool?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
         FirebaseApp.configure()
-        
         firstRunCheck()
-        
-//        print("Location Manager start...")
-//        LocationManager.shared.startUpdating()
-//        LocationManager.shared.configureLocationManager()
-//        LocationManager.shared.startUpdating()
-        
         return true
     }
 
     // MARK: UISceneSession Lifecycle
-
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         // Called when a new scene session is being created.
         // Use this method to select a configuration to create the new scene with.
@@ -45,15 +38,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         firstRun = userDefaults.bool(forKey: kFIRSTRUN)
         if firstRun! { return }
         
-        let status = Status.allCases.map { $0.rawValue }
-        userDefaults.set(status, forKey: kSTATUS)
+//        let channelType = ChannelType.allCases.map { $0.rawValue }
+//        let channelTheme = ChannelTheme.allCases.map { $0.rawValue }
+//
+//        userDefaults.set(channelType, forKey: kCHANNELTYPE)
+//        userDefaults.set(channelTheme, forKey: kCHANNELTHEME)
         userDefaults.set(true, forKey: kFIRSTRUN)
         
         // キャッシュを保存
         userDefaults.synchronize()
         
     }
-
-
 }
 

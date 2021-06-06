@@ -12,7 +12,7 @@ class SettingsTableViewController: UITableViewController {
 
     // MARK: - IBOutlets
     @IBOutlet weak var usernameLabel: UILabel!
-    @IBOutlet weak var statusLabel: UILabel!
+    @IBOutlet weak var userLangLabel: UILabel!
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var appVersionLabel: UILabel!
     
@@ -29,7 +29,6 @@ class SettingsTableViewController: UITableViewController {
     }
     
     // MARK: - IBActions
-    
     @IBAction func tellAFriendButtonPressed(_ sender: Any) {
         print("tell a friend")
     }
@@ -67,7 +66,7 @@ class SettingsTableViewController: UITableViewController {
     }
     
     override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return section == 0 ? 15.0 : 20.0
+        return section == 0 ? 0.0 : 15.0
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -78,16 +77,16 @@ class SettingsTableViewController: UITableViewController {
         if indexPath.section == 0 && indexPath.row == 0 {
             performSegue(withIdentifier: "SettingsToEditProfileSeg", sender: self)
         }
-        
-        
     }
     
     // MARK: - Update UI
     private func showUserInfo() {
         
         guard let user = User.currentUser else { return }
-        usernameLabel.text = user.username
-        statusLabel.text = user.status
+        print("user in UserDefaults", user)
+        
+        usernameLabel.text = user.name
+        userLangLabel.text = "Language: \(user.lang)"
         
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
         

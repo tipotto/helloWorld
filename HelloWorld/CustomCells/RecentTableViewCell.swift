@@ -9,20 +9,15 @@ import UIKit
 
 class RecentTableViewCell: UITableViewCell {
     
+    static let identifier = "RecentTableViewCell"
+    
     // MARK: - IBOutlets
     @IBOutlet weak var avatarImageView: UIImageView!
-    
     @IBOutlet weak var usernameLabel: UILabel!
-    
     @IBOutlet weak var lastMessageLabel: UILabel!
-    
     @IBOutlet weak var dateLabel: UILabel!
-    
     @IBOutlet weak var unreadCounterLabel: UILabel!
-    
     @IBOutlet weak var unreadCounterBackgroundView: UIView!
-    
-    
     
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -35,26 +30,72 @@ class RecentTableViewCell: UITableViewCell {
         // Configure the view for the selected state
     }
     
-    func configure(recent: RecentChat) {
-        usernameLabel.text = recent.receiverName
+//    func configure(recent: RecentChat) {
+//        usernameLabel.text = recent.receiverName
+//        usernameLabel.adjustsFontSizeToFitWidth = true
+//        usernameLabel.minimumScaleFactor = 0.9
+//
+//        lastMessageLabel.text = recent.lastMessage
+//        lastMessageLabel.adjustsFontSizeToFitWidth = true
+//        lastMessageLabel.minimumScaleFactor = 0.9
+//        lastMessageLabel.numberOfLines = 2
+//
+//        setAvatar(avatarLink: recent.avatarLink)
+//        dateLabel.text = timeElapsed(recent.date ?? Date())
+//        dateLabel.adjustsFontSizeToFitWidth = true
+//
+//        if recent.unreadCounter == 0 {
+//            unreadCounterBackgroundView.isHidden = true
+//            return
+//        }
+//
+//        unreadCounterLabel.text = "\(recent.unreadCounter)"
+//        unreadCounterBackgroundView.isHidden = false
+//    }
+    
+    func configure(room: JoiningChat) {
+        usernameLabel.text = room.name
         usernameLabel.adjustsFontSizeToFitWidth = true
         usernameLabel.minimumScaleFactor = 0.9
         
-        lastMessageLabel.text = recent.lastMessage
+        lastMessageLabel.text = room.lastMessage
         lastMessageLabel.adjustsFontSizeToFitWidth = true
         lastMessageLabel.minimumScaleFactor = 0.9
         lastMessageLabel.numberOfLines = 2
         
-        setAvatar(avatarLink: recent.avatarLink)
-        dateLabel.text = timeElapsed(recent.date ?? Date())
+        setAvatar(avatarLink: room.avatarLink)
+        dateLabel.text = timeElapsed(room.date ?? Date())
         dateLabel.adjustsFontSizeToFitWidth = true
         
-        if recent.unreadCounter == 0 {
+        if room.unreadCounter == 0 {
             unreadCounterBackgroundView.isHidden = true
             return
         }
         
-        unreadCounterLabel.text = "\(recent.unreadCounter)"
+        unreadCounterLabel.text = "\(room.unreadCounter)"
+        unreadCounterBackgroundView.isHidden = false
+    }
+    
+    func configure(channel: JoiningChannel) {
+        usernameLabel.text = channel.name
+        usernameLabel.adjustsFontSizeToFitWidth = true
+        usernameLabel.minimumScaleFactor = 0.9
+        
+        lastMessageLabel.text = channel.lastMessage
+        lastMessageLabel.adjustsFontSizeToFitWidth = true
+        lastMessageLabel.minimumScaleFactor = 0.9
+        lastMessageLabel.numberOfLines = 2
+        
+        setAvatar(avatarLink: channel.avatarLink)
+        dateLabel.text = timeElapsed(channel.date ?? Date())
+        dateLabel.adjustsFontSizeToFitWidth = true
+        
+        if channel.unreadCounter == 0 {
+            unreadCounterBackgroundView.isHidden = true
+            return
+        }
+        
+        unreadCounterLabel.text = "\(channel.unreadCounter)"
         unreadCounterBackgroundView.isHidden = false
     }
     

@@ -14,7 +14,7 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
     func inputBar(_ inputBar: InputBarAccessoryView, textViewTextDidChangeTo text: String) {
         
         if !text.isEmpty {
-            updateTypingIndicator()
+//            updateTypingIndicator()
         }
         
         updateMicButtonStatus(show: text.isEmpty)

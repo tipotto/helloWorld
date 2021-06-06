@@ -10,8 +10,9 @@ import UIKit
 class ChatsTableViewController: UITableViewController {
 
     // MARK: - Vars
-    var allRecents: [RecentChat] = []
-    var filteredRecents: [RecentChat] = []
+    var allRooms: [JoiningChat] = []
+    var filteredRooms: [JoiningChat] = []
+    
     let searchController = UISearchController(searchResultsController: nil)
 
     // MARK: - View Life Cycle
@@ -20,7 +21,7 @@ class ChatsTableViewController: UITableViewController {
         
         tableView.tableFooterView = UIView()
         setupSearchController()
-        downloadRecentChats()
+        loadJoiningRooms()
     }
     
     // MARK: - IBActions
@@ -33,14 +34,15 @@ class ChatsTableViewController: UITableViewController {
     
     // MARK: - Table view data source
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return searchController.isActive ? filteredRecents.count : allRecents.count
+        return searchController.isActive ? filteredRooms.count : allRooms.count
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath) as! RecentTableViewCell
+        let cell = tableView.dequeueReusableCell(withIdentifier: RecentTableViewCell.identifier, for: indexPath) as! RecentTableViewCell
         
-        let recent = searchController.isActive ? filteredRecents[indexPath.row] : allRecents[indexPath.row]
-        cell.configure(recent: recent)
+        let room = searchController.isActive ? filteredRooms[indexPath.row] : allRooms[indexPath.row]
+        
+        cell.configure(room: room)
 
         return cell
     }
@@ -54,14 +56,13 @@ class ChatsTableViewController: UITableViewController {
         if editingStyle != .delete { return }
         
         let isSearch = searchController.isActive
-        let recent = isSearch ? filteredRecents[indexPath.row] : allRecents[indexPath.row]
+        let room = isSearch ? filteredRooms[indexPath.row] : allRooms[indexPath.row]
         
-        FirebaseRecentListener.shared.deleteRecent(recent)
+        FirebaseRecentListener.shared.deleteJoiningRoom(room)
         
-        isSearch ? filteredRecents.remove(at: indexPath.row) : allRecents.remove(at: indexPath.row)
+        isSearch ? filteredRooms.remove(at: indexPath.row) : allRooms.remove(at: indexPath.row)
         
         tableView.deleteRows(at: [indexPath], with: .automatic)
-        
     }
     
     // MARK: - Table view delegate
@@ -85,44 +86,43 @@ class ChatsTableViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        let recent = searchController.isActive ? filteredRecents[indexPath.row] : allRecents[indexPath.row]
-        FirebaseRecentListener.shared.clearUnreadCounter(recent: recent)
+        let room = searchController.isActive ? filteredRooms[indexPath.row] : allRooms[indexPath.row]
+//        FirebaseRecentListener.shared.clearUnreadCounter(chatRoomId: room.id)
         
         // Enter chat room
-        goToChat(recent: recent)
+        enterChatRoom(room: room)
 
     }
-    
-    private func goToChat(recent: RecentChat) {
+
+    private func enterChatRoom(room: JoiningChat) {
         
-        // 自分とチャット相手のRecentが存在するか確認し、もし存在しなければ作成する
-        // 確実にお互いのRecentが存在するようにする
-        // しかし、お互いのユーザーデータが確実に存在することが前提となるため、
-        // 万が一片方でもユーザーを削除していた場合、アプリがクラッシュする
-        restartChat(chatRoomId: recent.chatRoomId, memberIds: recent.memberIds)
+        // 自分とチャット相手のJoiningChatが存在するか確認し、存在しなければ作成
+        // TODO: もし片方でもユーザーが退会していた場合（この場合はチャット相手の可能性が高い）、
+        // チャットを試みているユーザー（ログインユーザー）のリストから該当のJoiningChatを削除する
+        restartChat(room: room)
         
-        let privateChatView = ChatViewController(chatId: recent.chatRoomId,
-                                                 recipientId: recent.receiverId,
-                                                 recipientName: recent.receiverName)
+        let privateChatView = ChatViewController(chatId: room.id,
+                                                 recipientId: room.partnerId,
+                                                 recipientName: room.name,
+                                                 recipientLang: room.lang)
         
         // 遷移した後の画面では、下部のバーを表示しない
         privateChatView.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(privateChatView, animated: true)
         
     }
-    
-    private func downloadRecentChats() {
-        FirebaseRecentListener.shared.downloadRecentChatsFromFireStore { [weak self] allRecents in
+
+    private func loadJoiningRooms() {
+        FirebaseRecentListener.shared.fetchJoiningRoomsByUser { [weak self] rooms in
             
             guard let strongSelf = self else { return }
             
-            strongSelf.allRecents = allRecents
+            strongSelf.allRooms = rooms
             
             DispatchQueue.main.async {
                 strongSelf.tableView.reloadData()
             }
         }
-        
     }
     
     // MARK: - Setup SearchController
@@ -136,9 +136,17 @@ class ChatsTableViewController: UITableViewController {
         definesPresentationContext = true
     }
     
+//    private func filteredContentForSearchText(searchText: String) {
+//        filteredRecents = allRecents.filter { recent -> Bool in
+//            return recent.receiverName.lowercased().contains(searchText.lowercased())
+//        }
+//
+//        tableView.reloadData()
+//    }
+    
     private func filteredContentForSearchText(searchText: String) {
-        filteredRecents = allRecents.filter { recent -> Bool in
-            return recent.receiverName.lowercased().contains(searchText.lowercased())
+        filteredRooms = allRooms.filter {
+            $0.name.lowercased().contains(searchText.lowercased())
         }
         
         tableView.reloadData()

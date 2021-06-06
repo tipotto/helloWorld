@@ -13,6 +13,22 @@ import SKPhotoBrowser
 
 extension ChatViewController: MessageCellDelegate {
     
+    func didTapAvatar(in cell: MessageCollectionViewCell) {
+        print("Avatar is tapped...")
+        
+        guard let indexPath = messagesCollectionView.indexPath(for: cell) else { return }
+        
+        let mkSender = mkMessages[indexPath.section].mkSender
+        
+        FirebaseUserListener.shared.fetchUserFromFirebase(userId: mkSender.senderId) { [weak self] user in
+            
+            let profileView = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(identifier: "ProfileView") as! ProfileTableViewController
+            
+            profileView.user = user
+            self?.navigationController?.pushViewController(profileView, animated: true)
+        }
+    }
+    
     func didTapImage(in cell: MessageCollectionViewCell) {
         
         guard let indexPath = messagesCollectionView.indexPath(for: cell) else { return }
@@ -83,6 +99,22 @@ extension ChatViewController: MessageCellDelegate {
 }
 
 extension ChannelChatViewController: MessageCellDelegate {
+    
+    func didTapAvatar(in cell: MessageCollectionViewCell) {
+        print("Avatar is tapped...")
+        
+        guard let indexPath = messagesCollectionView.indexPath(for: cell) else { return }
+        
+        let mkSender = mkMessages[indexPath.section].mkSender
+        
+        FirebaseUserListener.shared.fetchUserFromFirebase(userId: mkSender.senderId) { [weak self] user in
+            
+            let profileView = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(identifier: "ProfileView") as! ProfileTableViewController
+            
+            profileView.user = user
+            self?.navigationController?.pushViewController(profileView, animated: true)
+        }
+    }
     
     func didTapImage(in cell: MessageCollectionViewCell) {
         

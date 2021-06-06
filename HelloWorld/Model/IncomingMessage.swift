@@ -18,24 +18,6 @@ class IncomingMessage {
     }
     
     // MARK: - Create Message
-//    func createMessage(localMessage: LocalMessage) -> MKMessage? {
-//        let mkMessage = MKMessage(message: localMessage)
-//
-//        if localMessage.type == kPHOTO {
-//
-////            let photo = PhotoMessage(path: localMessage.pictureUrl)
-////            mkMessage.kind = MessageKind.photo(photo)
-////            mkMessage.photoItem = photo
-//
-//            FileStorage.downloadImage(imageUrl: localMessage.pictureUrl) { [weak self] image in
-//                mkMessage.photoItem?.image = image
-//                self?.messageCollectionView.messagesCollectionView.reloadData()
-//            }
-//        }
-//
-//        return mkMessage
-//    }
-    
     func createMessage(localMessage: LocalMessage) -> MKMessage? {
         
         let mkMessage = MKMessage(message: localMessage)

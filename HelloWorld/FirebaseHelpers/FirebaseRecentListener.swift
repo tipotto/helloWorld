@@ -14,104 +14,82 @@ class FirebaseRecentListener {
     
     private init() {}
     
-    func downloadRecentChatsFromFireStore(completion: @escaping (_ allRecents: [RecentChat]) -> Void) {
+    func fetchJoiningRooms(userIds: [String], completion: @escaping (_ rooms: [JoiningChat]) -> Void) {
         
-        FirebaseReference(.Recent).whereField(kSENDERID, isEqualTo: User.currentId).addSnapshotListener { (snapshot, error) in
-            
-            var recentChats: [RecentChat] = []
-            
-            guard let documents = snapshot?.documents else {
-                print("No documents for recent chats")
-                return
-            }
-            
-            let allRecents = documents.compactMap {
-                try? $0.data(as: RecentChat.self)
-            }
-            
-            for recent in allRecents {
-                if recent.lastMessage.isEmpty { continue }
-                recentChats.append(recent)
-            }
-            
-            recentChats.sort { $0.date! > $1.date! }
-            completion(recentChats)
-            
-        }
-    }
-    
-    func updateRecents(chatRoomId: String, lastMessage: String) {
-        
-        // 
-        FirebaseReference(.Recent).whereField(kCHATROOMID, isEqualTo: chatRoomId).getDocuments { [weak self] (snapshot, error) in
-            
-            guard let documents = snapshot?.documents else {
-                print("No document for recent update")
-                return
-            }
-            
-            let allRecents = documents.compactMap {
-                try? $0.data(as: RecentChat.self)
-            }
-            
-            for recent in allRecents {
-                self?.updateRecentWithNewMessage(recent: recent, lastMessage: lastMessage)
-            }
-            
-        }
-    }
-    
-    private func updateRecentWithNewMessage(recent: RecentChat, lastMessage: String) {
+        let firstUserId = userIds.first
+        let secondUserId = userIds.last
+        let partnerIdsByUser = [firstUserId: secondUserId, secondUserId: firstUserId]
 
-        var recent = recent
-        if recent.senderId != User.currentId {
-            recent.unreadCounter += 1
+        var count = 0
+        var rooms: [JoiningChat] = []
+
+        for userId in userIds {
+            
+            guard let partnerId = partnerIdsByUser[userId] as? String else { return }
+            
+            print("Fetching room for user", userId)
+
+            FirebaseReference(.User).document(userId).collection(kCHAT).document(partnerId).getDocument { (document, error) in
+
+                guard let document = document else {
+                    print("No room documents for user", userId)
+                    // TODO: もし存在しない場合は次のループを実行するようにしたい
+                    // returnの場合、次のループが実行されるか確認
+                    return
+                }
+                
+                print("Got room document for user", userId)
+
+                if let room = try? document.data(as: JoiningChat.self) {
+                    print("Succeeded to cast data for user", userId)
+                    rooms.append(room)
+                    
+                } else {
+                    print("Failed to cast data for user", userId)
+                }
+                
+                count += 1
+                if count == userIds.count { completion(rooms) }
+            }
         }
-        
-        recent.lastMessage = lastMessage
-        recent.date = Date()
-        saveRecent(recent)
     }
     
-    // 特定のチャットルームに入室する時点で実行することを想定
-    // 特定のRecentを引数にとっているため
-    func clearUnreadCounter(recent: RecentChat) {
-        var newRecent = recent
-        newRecent.unreadCounter = 0
-        saveRecent(newRecent)
+    func fetchJoiningRoomsByUser(completion: @escaping (_ allRooms: [JoiningChat]) -> Void) {
+        
+        FirebaseReference(.User).document(User.currentId).collection(kCHAT).addSnapshotListener { (snapshot, error) in
+            
+            guard let documents = snapshot?.documents else {
+                print("No documents for joining rooms")
+                return
+            }
+            
+            var allRooms = documents.compactMap {
+                try? $0.data(as: JoiningChat.self)
+            }
+            
+            allRooms.sort { $0.date! > $1.date! }
+            completion(allRooms)
+        }
     }
     
     // チャットルームから退出する時点で実行することを想定
-    func resetRecentCounter(chatRoomId: String) {
-        FirebaseReference(.Recent).whereField(kCHATROOMID, isEqualTo: chatRoomId).whereField(kSENDERID, isEqualTo: User.currentId).getDocuments { [weak self] (snapshot, error) in
-            guard let document = snapshot?.documents else {
-                print("No documents for recent")
-                return
-            }
-            
-            let allRecents = document.compactMap { snapshot -> RecentChat? in
-                return try? snapshot.data(as: RecentChat.self)
-            }
-            
-//            let allRecents = document.compactMap {
-//                try? $0.data(as: RecentChat.self)
-//            }
-            
-            if allRecents.count <= 0 { return }
-            self?.clearUnreadCounter(recent: allRecents.first!)
-        }
+    func clearUnreadCounter(chatRoomId: String, isChannel: Bool = false) {
+        
+        let roomRef = FirebaseReference(.User).document(User.currentId).collection(isChannel ? kCHANNEL : kCHAT).document(chatRoomId)
+
+        roomRef.updateData(["unreadCounter": 0])
     }
     
-    func saveRecent(_ recent: RecentChat) {
+    func saveJoiningRoom(room: JoiningChat, userId: String) {
         do {
-            try FirebaseReference(.Recent).document(recent.id).setData(from: recent)
+            try FirebaseReference(.User).document(userId).collection(kCHAT).document(room.id).setData(from: room)
             
         } catch {
             print("Error saving recent", error.localizedDescription)
         }
     }
     
-    func deleteRecent(_ recent: RecentChat) {
-        FirebaseReference(.Recent).document(recent.id).delete()
+    func deleteJoiningRoom(_ room: JoiningChat) {
+        FirebaseReference(.User).document(User.currentId).collection(kCHAT).document(room.id).delete()
     }
 }

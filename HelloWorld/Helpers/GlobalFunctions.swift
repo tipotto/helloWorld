@@ -25,7 +25,6 @@ func fileNameFrom(fileUrl: String) -> String? {
 func timeElapsed(_ date: Date) -> String {
     
     let seconds = Date().timeIntervalSince(date)
-    
     var elapsed = ""
     
     // 1分未満の場合
@@ -36,13 +35,13 @@ func timeElapsed(_ date: Date) -> String {
     } else if seconds < 60 * 60 {
         let minutes = Int(seconds / 60)
         let minText = minutes > 1 ? "mins" : "min"
-        elapsed = "\(minutes) \(minText)"
+        elapsed = "\(minutes) \(minText) ago"
     
     // 1日（24時間）未満の場合
     } else if seconds < 60 * 60 * 24 {
-        let hours = Int(seconds / 60 * 60)
+        let hours = Int(seconds / (60 * 60))
         let hourText = hours > 1 ? "hours" : "hour"
-        elapsed = "\(hours) \(hourText)"
+        elapsed = "\(hours) \(hourText) ago"
     
     // 1日（24時間）以上の場合
     } else {
@@ -75,7 +74,4 @@ func videoThumbnail(videoUrl: URL) -> UIImage {
     }
     
     return UIImage(cgImage: image!)
-    
-    
-    
 }

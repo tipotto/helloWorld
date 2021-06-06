@@ -14,7 +14,8 @@ protocol ChannelDetailTableViewControllerDelegate {
 class ChannelDetailTableViewController: UITableViewController {
 
     // MARK: - Vars
-    var channel: Channel!
+    var channelRes: ChannelRes!
+    var channel: Channel?
     var delegate: ChannelDetailTableViewControllerDelegate?
     
     // MARK: - View Life Cycle
@@ -23,7 +24,7 @@ class ChannelDetailTableViewController: UITableViewController {
         
         navigationItem.largeTitleDisplayMode = .never
         tableView.tableFooterView = UIView()
-        showChannelData()
+        fetchChannel()
         configureRightBarButton()
     }
 
@@ -31,19 +32,40 @@ class ChannelDetailTableViewController: UITableViewController {
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var nameLabel: UILabel!
     @IBOutlet weak var membersLabel: UILabel!
+    @IBOutlet weak var lastMessageDateLabel: UILabel!
     @IBOutlet weak var aboutTextView: UITextView!
     
     // MARK: - Configure
+    private func configLabels() {
+        nameLabel.adjustsFontSizeToFitWidth = true
+        nameLabel.minimumScaleFactor = 0.9
+        membersLabel.adjustsFontSizeToFitWidth = true
+        membersLabel.minimumScaleFactor = 0.9
+        lastMessageDateLabel.adjustsFontSizeToFitWidth = true
+        lastMessageDateLabel.minimumScaleFactor = 0.9
+    }
+    
     private func showChannelData() {
-        title = channel.name
-        nameLabel.text = channel.name
-        membersLabel.text = "\(channel.memberIds.count) members"
-        aboutTextView.text = channel.aboutChannel
-        setAvater(avatarLink: channel.avatarLink)
+        
+        title = channelRes.name
+        nameLabel.text = channelRes.name
+        membersLabel.text = "\(channel!.memberCounter) members"
+        lastMessageDateLabel.text = timeElapsed(channel!.lastMessageDate ?? Date())
+        aboutTextView.text = channelRes.aboutChannel
+        setAvater(avatarLink: channelRes.avatarLink)
+        
+        configLabels()
     }
     
     private func configureRightBarButton() {
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Follow", style: .plain, target: self, action: #selector(followChannel))
+    }
+    
+    private func fetchChannel() {
+        FirebaseChannelListener.shared.downloadChannel(channelId: channelRes.channelId) { [weak self] channel in
+            self?.channel = channel
+            self?.showChannelData()
+        }
     }
     
     private func setAvater(avatarLink: String) {
@@ -59,8 +81,11 @@ class ChannelDetailTableViewController: UITableViewController {
     
     // MARK: - Actions
     @objc func followChannel() {
-        channel.memberIds.append(User.currentId)
-        FirebaseChannelListener.shared.saveChannel(channel)
+        
+        let joiningChannel = JoiningChannel(id: channelRes.channelId, name: channelRes.name, avatarLink: channelRes.avatarLink, aboutChannel: channelRes.aboutChannel)
+        
+        FirebaseChannelListener.shared.followChannel(joiningChannel: joiningChannel)
+
         delegate?.didClickFollow()
         
         // 1つ前のコントローラーに戻る

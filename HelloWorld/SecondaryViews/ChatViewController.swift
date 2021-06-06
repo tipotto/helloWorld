@@ -41,12 +41,13 @@ class ChatViewController: MessagesViewController {
     private var chatId = ""
     private var recipientId = ""
     private var recipientName = ""
+    private var recipientLang = ""
     
     // lazy: 毎回BasicAudioControllerのインスタンスを取得（初期化）するのではなく、
     // マイクボタンがクリックされた時のみ初期化
     open lazy var audioController = BasicAudioController(messageCollectionView: messagesCollectionView)
     
-    let currentUser = MKSender(senderId: User.currentId, displayName: User.currentUser!.username)
+    let currentUser = MKSender(senderId: User.currentId, displayName: User.currentUser!.name)
     let refreshController = UIRefreshControl()
     let micButton = InputBarButtonItem()
     
@@ -58,12 +59,14 @@ class ChatViewController: MessagesViewController {
     var displayingMessagesCount = 0
     var maxMessageNumber = 0
     var minMessageNumber = 0
-    var typingCounter = 0
+//    var typingCounter = 0
+    
+    var isLoadMessagesEnabled = false
     
     var gallery: GalleryController!
     
     // Listeners
-    var notificationToken: NotificationToken?
+    static var notificationToken: NotificationToken?
     
     var longPressGesture: UILongPressGestureRecognizer!
     var audioFileName = ""
@@ -71,11 +74,12 @@ class ChatViewController: MessagesViewController {
     
     
     // MARK: - Inits
-    init(chatId: String, recipientId: String ,recipientName: String) {
+    init(chatId: String, recipientId: String, recipientName: String, recipientLang: String) {
         super.init(nibName: nil, bundle: nil)
         self.chatId = chatId
         self.recipientId = recipientId
         self.recipientName = recipientName
+        self.recipientLang = recipientLang
     }
     
     required init?(coder: NSCoder) {
@@ -90,27 +94,25 @@ class ChatViewController: MessagesViewController {
         
         navigationItem.largeTitleDisplayMode = .never
         
-        createTypingObserver()
+//        createTypingObserver()
         
         configureMessageCollectionView()
         configureGestureRecognizer()
         configureMessageInputBar()
         configureLeftBarButton()
         configureCustomTitle()
-        updateTextForTypingIndicator(false)
+//        updateTextForTypingIndicator(false)
         loadChats()
-        listenForNewChats()
-        listenForReadStatusChange()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        FirebaseRecentListener.shared.resetRecentCounter(chatRoomId: chatId)
+//        FirebaseRecentListener.shared.clearUnreadCounter(chatRoomId: chatId)
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        FirebaseRecentListener.shared.resetRecentCounter(chatRoomId: chatId)
+//        FirebaseRecentListener.shared.clearUnreadCounter(chatRoomId: chatId)
         audioController.stopAnyOngoingPlaying()
     }
     
@@ -124,9 +126,7 @@ class ChatViewController: MessagesViewController {
         // InputTextBarを編集した時に、画面を最下部までスクロールすることで
         // 常に最新メッセージを表示するようにする
         scrollsToBottomOnKeyboardBeginsEditing = true
-
         maintainPositionOnKeyboardFrameChanged = true
-
         messagesCollectionView.refreshControl = refreshController
     }
     
@@ -188,23 +188,32 @@ class ChatViewController: MessagesViewController {
         titleLabel.text = recipientName
     }
     
+    private func startListeners() {
+        listenForNewChats()
+        listenForReadStatusChange()
+    }
+    
     // MARK: - Load Chats
     private func loadChats() {
         
         // Realm（ローカルストレージ）からチャットデータを取得
-        let predicate = NSPredicate(format: "chatRoomId = %@", chatId)
-        allLocalMessages = realm?.objects(LocalMessage.self)
-            .filter(predicate)
-            .sorted(byKeyPath: kDATE, ascending: true)
+        allLocalMessages = RealmManager.shared.getMessages(chatRoomId: chatId)
         
         // Realm（ローカルストレージ）にデータが存在しない場合
         // Firestoreからメッセージを取得し、Realmに保存
         if allLocalMessages.isEmpty {
-            checkForOldChats()
+            fetchMessages()
+            
+        } else {
+            startListeners()
         }
         
+        print("After checkForOldChats...")
+        
         // リスナーを停止する際は、invalidateメソッドを呼ぶ
-        notificationToken = allLocalMessages.observe { [weak self] (changes: RealmCollectionChange) in
+        ChatViewController.notificationToken = allLocalMessages.observe { [weak self] (changes: RealmCollectionChange) in
+            
+            print("Start notification...")
             
             guard let strongSelf = self else { return }
             
@@ -215,7 +224,7 @@ class ChatViewController: MessagesViewController {
                 strongSelf.messagesCollectionView.reloadData()
                 strongSelf.messagesCollectionView.scrollToBottom(animated: true)
                 
-            case .update(_, _, let insertions, _):
+            case .update(_, _, let insertions, let modifications):
                 // checkForOldChatsメソッド内でFirestoreからメッセージを取得し、
                 // Realmに保存するとこのブロックに入ってくる
                 // トリガーは、Realmへのデータ追加・変更？（changesがRealmCollectionChange型のため）
@@ -233,33 +242,61 @@ class ChatViewController: MessagesViewController {
                     strongSelf.messagesCollectionView.scrollToBottom(animated: false)
                 }
                 
+                for index in modifications {
+                    print("modifications", modifications)
+                    print("index", index)
+                    strongSelf.updateMessage(strongSelf.allLocalMessages[index])
+                }
+                
             case .error(let error):
                 print("Error on new insertions", error.localizedDescription)
             }
         }
+        
+        print("Finish loadChats...")
     }
     
     private func listenForNewChats() {
-        FirebaseMessageListener.shared.listenForNewChats(User.currentId, collectionId: chatId, lastMessageDate: lastMessageDate())
-    }
-
-    private func checkForOldChats() {
-        FirebaseMessageListener.shared.checkForOldChats(User.currentId, collectionId: chatId)
+        
+        print("Finish loadChats...")
+        
+        FirebaseMessageListener.shared.listenForNewChats(channelId: chatId, lastMessageDate: lastMessageDate())
     }
     
-    private func listenForReadStatusChange() {
-        FirebaseMessageListener.shared.listenForReadStatusChange(User.currentId, collectionId: chatId) { [weak self] updatedMessage in
-            // markMessageAsReadメソッド内では、チャット相手が送信したメッセージかつ未読のもの以外は、既読処理をスルーする仕様
-            // そのため、FirebaseMessageListenerのlistenForReadStatusChangeメソッドで変更を検知するのは、
-            // チャット相手が送信したメッセージ、かつ既読のものに限られる
-            // そのため、このクロージャーで受け取るメッセージのステータスは、Read以外入ってこないはず
-            if updatedMessage.status != kREAD { return }
-            print("updated message", updatedMessage.message)
-            print("updated status", updatedMessage.status)
-            self?.updateMessage(updatedMessage)
+    private func configureMessageLoader() {
+        print("old allLocalMessages count", allLocalMessages.count)
+        
+        allLocalMessages = RealmManager.shared.getMessages(chatRoomId: chatId)
+        
+        print("new allLocalMessages count", allLocalMessages.count)
+        print("displayingMessages count", displayingMessagesCount)
+        
+        maxMessageNumber = allLocalMessages.count
+        minMessageNumber = (maxMessageNumber - kDISPLAYMESSAGESNUMBER >= 0 ? maxMessageNumber - kDISPLAYMESSAGESNUMBER : 0)
+    }
+    
+    private func fetchMessages() {
+        
+        FirebaseMessageListener.shared.fetchMessages(channelId: chatId) {
+            [weak self] isCompleted in
+            
+            guard let strongSelf = self else { return }
+            
+            print("translateMessages...")
+            
+            if isCompleted {
+                strongSelf.configureMessageLoader()
+            }
+                
+            strongSelf.isLoadMessagesEnabled = false
+            strongSelf.startListeners()
         }
     }
 
+    private func listenForReadStatusChange() {
+        FirebaseMessageListener.shared.listenForReadStatusChange(channelId: chatId)
+    }
+    
     // MARK: - Insert Messages
     // 初回ロード時のみ実行（initial）
     private func insertMessages() {
@@ -267,7 +304,7 @@ class ChatViewController: MessagesViewController {
         print("all local messages(insertMessages)", allLocalMessages.count)
         
         maxMessageNumber = allLocalMessages.count - displayingMessagesCount
-        minMessageNumber = maxMessageNumber - kNUMBEROFMESSAGES
+        minMessageNumber = maxMessageNumber - kDISPLAYMESSAGESNUMBER
         
         if minMessageNumber < 0 {
             minMessageNumber = 0
@@ -281,55 +318,24 @@ class ChatViewController: MessagesViewController {
         }
     }
     
-    private func insertMessage(_ localMessage: LocalMessage) {
+    private func convertToMkMessage(message: LocalMessage) -> MKMessage? {
+        let incoming = IncomingMessage(self)
+        guard let mkMessage = incoming.createMessage(localMessage: message) else { return nil }
+        return mkMessage
+    }
+    
+    private func insertMessage(_ message: LocalMessage) {
         print("insert message")
 
-        // 各メッセージを既読にする
-        // Incoming, かつ未読であれば既読に変更
-        markMessageAsRead(localMessage)
-
-        let incoming = IncomingMessage(self)
-
-        // LocalMessage を MKMessage に変換
-        guard let mkMessage = incoming.createMessage(localMessage: localMessage) else { return }
-        print("mkMessage image", mkMessage.photoItem?.image == nil ? "Image is nil" : "Get image successfully")
+        guard let mkMessage = convertToMkMessage(message: message) else { return }
         mkMessages.append(mkMessage)
 
         displayingMessagesCount += 1
     }
     
-//    private func insertMessage(_ localMessage: LocalMessage) {
-//        print("insert message")
-//
-//        // 各メッセージを既読にする
-//        // Incoming, かつ未読であれば既読
-//        markMessageAsRead(localMessage)
-//
-//        let mkMessage = MKMessage(message: localMessage)
-//
-//        if localMessage.type == kTEXT {
-//            mkMessages.append(mkMessage)
-//            displayingMessagesCount += 1
-//        }
-//
-//        if localMessage.type == kPHOTO {
-//            FileStorage.downloadImage(imageUrl: localMessage.pictureUrl) { [weak self] image in
-//
-//                guard let strongSelf = self else { return }
-//
-//                // UIの更新はMainスレッドで行う必要あり
-//                mkMessage.photoItem?.image = image
-//                strongSelf.messagesCollectionView.reloadData()
-//
-//                strongSelf.mkMessages.append(mkMessage)
-//                strongSelf.displayingMessagesCount += 1
-//            }
-//        }
-//    }
-    
     private func loadMoreMessages(maxNumber: Int, minNumber: Int) {
         maxMessageNumber = minNumber - 1
-        minMessageNumber = maxMessageNumber - kNUMBEROFMESSAGES
+        minMessageNumber = maxMessageNumber - kDISPLAYMESSAGESNUMBER
         
         if minMessageNumber < 0 {
             minMessageNumber = 0
@@ -340,49 +346,16 @@ class ChatViewController: MessagesViewController {
         }
     }
     
-    private func insertOlderMessage(_ localMessage: LocalMessage) {
-        let incoming = IncomingMessage(self)
-
-        // LocalMessage を MKMessage に変換
-        guard let mkMessage = incoming.createMessage(localMessage: localMessage) else { return }
+    private func insertOlderMessage(_ message: LocalMessage) {
+        guard let mkMessage = convertToMkMessage(message: message) else { return }
         mkMessages.insert(mkMessage, at: 0)
         displayingMessagesCount += 1
     }
-    
-//    private func insertOlderMessage(_ localMessage: LocalMessage) {
-//        let mkMessage = MKMessage(message: localMessage)
-//
-//        if localMessage.type == kTEXT {
-//            mkMessages.insert(mkMessage, at: 0)
-//            displayingMessagesCount += 1
-//        }
-//
-//        if localMessage.type == kPHOTO {
-//            FileStorage.downloadImage(imageUrl: localMessage.pictureUrl) { [weak self] image in
-//
-//                guard let strongSelf = self else { return }
-//
-//                // UIの更新はMainスレッドで行う必要あり
-//                mkMessage.photoItem?.image = image
-//                strongSelf.messagesCollectionView.reloadData()
-//
-//                strongSelf.mkMessages.insert(mkMessage, at: 0)
-//                strongSelf.displayingMessagesCount += 1
-//            }
-//        }
-//    }
-    
-    // insertMessage内で呼び出し
-    private func markMessageAsRead(_ localMessage: LocalMessage) {
-        // チャット相手が送信したメッセージ、かつ未読のものだけを既読にする
-        if (localMessage.senderId == User.currentId) || localMessage.status == kREAD { return }
-        FirebaseMessageListener.shared.updateMessageInFirebase(localMessage, memberIds: [User.currentId, recipientId])
-    }
-    
+
     // MARK: - Actions
     func sendMessage(text: String?, photo: UIImage?, video: Video?, location: String?, coordinate: CLLocationCoordinate2D?, audio: String?, audioDuration: Float = 0.0) {
         
-        OutgoingMessage.send(chatId: chatId,
+        OutgoingMessage.send(roomId: chatId,
                              text: text,
                              photo: photo,
                              video: video,
@@ -390,11 +363,11 @@ class ChatViewController: MessagesViewController {
                              coordinate: coordinate,
                              audio: audio,
                              audioDuration: audioDuration,
-                             memberIds: [User.currentId, recipientId])
+                             recipientInfo: ["id": recipientId, "lang": recipientLang])
     }
     
     @objc func backButtonPressed() {
-        FirebaseRecentListener.shared.resetRecentCounter(chatRoomId: chatId)
+        FirebaseRecentListener.shared.clearUnreadCounter(chatRoomId: chatId)
         removeListener()
         LocationManager.shared.stopUpdating()
         navigationController?.popViewController(animated: true)
@@ -445,11 +418,6 @@ class ChatViewController: MessagesViewController {
         
         print("Share Location")
         
-//            LocationManager.shared.configureLocationManager()
-//            let location = LocationManager.shared
-//            print(location.locationManager == nil ? "locationManager is nil" : "locationManager is NOT nil")
-//            print(location.isUpdatelocation == false ? "false" : "true")
-        
         if LocationManager.shared.authStatus == kNOTDETERMINED {
             print("status >>> not determined")
             LocationManager.shared.configureLocationManager()
@@ -484,31 +452,31 @@ class ChatViewController: MessagesViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
     
-    func createTypingObserver() {
-        FirebaseTypingListener.shared.createTypingObserver(chatRoomId: chatId) { [weak self] isTyping in
-            
-            DispatchQueue.main.async {
-                self?.updateTextForTypingIndicator(isTyping)
-            }
-        }
-    }
+//    func createTypingObserver() {
+//        FirebaseTypingListener.shared.createTypingObserver(chatRoomId: chatId) { [weak self] isTyping in
+//
+//            DispatchQueue.main.async {
+//                self?.updateTextForTypingIndicator(isTyping)
+//            }
+//        }
+//    }
     
-    func updateTypingIndicator() {
-        typingCounter += 1
-        FirebaseTypingListener.saveTypingCounter(isTyping: true, chatRoomId: chatId)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            self?.stopTypingCounter()
-        }
-    }
+//    func updateTypingIndicator() {
+//        typingCounter += 1
+//        FirebaseTypingListener.saveTypingCounter(isTyping: true, chatRoomId: chatId)
+//
+//        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+//            self?.stopTypingCounter()
+//        }
+//    }
     
-    func stopTypingCounter() {
-        typingCounter -= 1
-        
-        if typingCounter == 0 {
-            FirebaseTypingListener.saveTypingCounter(isTyping: false, chatRoomId: chatId)
-        }
-    }
+//    func stopTypingCounter() {
+//        typingCounter -= 1
+//
+//        if typingCounter == 0 {
+//            FirebaseTypingListener.saveTypingCounter(isTyping: false, chatRoomId: chatId)
+//        }
+//    }
     
     // MARK: - Update Typing Indicator
     func updateTextForTypingIndicator(_ show: Bool) {
@@ -518,7 +486,7 @@ class ChatViewController: MessagesViewController {
     // MARK: - UIScroll View Delegate
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         if !refreshController.isRefreshing { return }
-        if displayingMessagesCount >= allLocalMessages.count {
+        if isLoadMessagesEnabled || (displayingMessagesCount >= allLocalMessages.count) {
             refreshController.endRefreshing()
             return
         }
@@ -528,26 +496,19 @@ class ChatViewController: MessagesViewController {
     
     // MARK: - Update Read Message Status
     // FirestoreへのReadステータスの変更を検知して、ローカルストレージのデータを変更
-    private func updateMessage(_ localMessage: LocalMessage) {
-        for index in 0 ..< mkMessages.count {
-            let message = mkMessages[index]
-            if message.messageId != localMessage.id { continue }
+    private func updateMessage(_ message: LocalMessage) {
 
-            message.status = localMessage.status
-            message.readDate = localMessage.readDate
-            mkMessages[index] = message
-
-            RealmManager.shared.saveToRealm(localMessage)
-
-            if message.status == kREAD {
-                messagesCollectionView.reloadData()
-            }
-        }
+        guard let index = mkMessages.firstIndex(where: { $0.messageId == message.id }) else { return }
+        let mkMessage = mkMessages[index]
+        mkMessage.readCounter = message.readCounter
+        mkMessage.readDate = message.readDate
+        mkMessages[index] = mkMessage
+        messagesCollectionView.reloadData()
     }
     
     // MARK: - Helpers
     private func removeListener() {
-        FirebaseTypingListener.shared.removeTypingListener()
+//        FirebaseTypingListener.shared.removeTypingListener()
         FirebaseMessageListener.shared.removeListeners()
     }
     
