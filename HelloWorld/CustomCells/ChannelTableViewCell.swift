@@ -9,6 +9,8 @@ import UIKit
 
 class ChannelTableViewCell: UITableViewCell {
     
+    static let identifier = "ChannelTableViewCell"
+    
     // MARK: - IBOutlet
     @IBOutlet weak var avatarImageView: UIImageView!
 
@@ -29,15 +31,24 @@ class ChannelTableViewCell: UITableViewCell {
         super.setSelected(selected, animated: animated)
     }
     
-    func configure(channel: Channel) {
+//    func configure(joiningChannel: JoiningChannel) {
+//        setAvatar(avatarLink: channel.avatarLink)
+//        nameLabel.text = channel.name
+//        aboutLabel.text = channel.aboutChannel
+//            memberCountLabel.text = "\(channel.memberCounter) members"
+//        lastMessageDateLabel.text = timeElapsed(channel.lastMessageDate ?? Date())
+//        lastMessageDateLabel.adjustsFontSizeToFitWidth = true
+//    }
+    
+    func configure(channel: ChannelRes) {
         setAvatar(avatarLink: channel.avatarLink)
         nameLabel.text = channel.name
         aboutLabel.text = channel.aboutChannel
-        memberCountLabel.text = "\(channel.memberIds.count) members"
-        lastMessageDateLabel.text = timeElapsed(channel.lastMessageDate ?? Date())
+//        memberCountLabel.text = "\(channel.memberCounter) members"
+//        lastMessageDateLabel.text = timeElapsed(channel.lastMessageDate ?? Date())
         lastMessageDateLabel.adjustsFontSizeToFitWidth = true
     }
-    
+
     private func setAvatar(avatarLink: String) {
         if avatarLink.isEmpty {
             avatarImageView.image = UIImage(named: "avatar")

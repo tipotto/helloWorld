@@ -9,98 +9,116 @@ import Foundation
 import Firebase
 
 // MARK: - Start Chat
-
 func startChat(firstUser: User, secondUser: User) -> String? {
-    
+
     guard let chatRoomId = chatRoomIdFrom(firstUserId: firstUser.id, secondUserId: secondUser.id) else {
         return nil
     }
     
-    createRecentItems(chatRoomId: chatRoomId, users: [firstUser, secondUser])
-    
+    print("firstUserId", firstUser.id)
+    print("secondUserId", secondUser.id)
+    print("chatRoomId", chatRoomId)
+
+    addJoiningRooms(chatRoomId: chatRoomId, users: [firstUser, secondUser])
+
     return chatRoomId
 }
 
-func restartChat(chatRoomId: String, memberIds: [String]) {
-    FirebaseUserListener.shared.downloadUsersFromFirebase(withIds: memberIds) { users in
-        if users.count <= 0 { return }
-        createRecentItems(chatRoomId: chatRoomId, users: users)
+func restartChat(room: JoiningChat) {
+    FirebaseUserListener.shared.downloadUsersFromFirebase(userIds: [User.currentId, room.partnerId]) {
+        users in
+        
+        // TODO: 1人でも存在しなければ、その場で処理を終了
+        if users.count <= 1 { return }
+        addJoiningRooms(chatRoomId: room.id, users: users)
     }
 }
 
-func createRecentItems(chatRoomId: String, users: [User]) {
+func addJoiningRooms(chatRoomId: String, users: [User]) {
     
-    let memberIdsToCreateRecent = [users.first!.id, users.last!.id]
-    print("initial member ids", memberIdsToCreateRecent)
+    print("Start adding rooms...")
     
-    FirebaseReference(.Recent).whereField(kCHATROOMID, isEqualTo: chatRoomId).getDocuments { (snapshot, error) in
-        
-        // Recentが存在しない場合でも、snapshot自体は返ってくる。
-        guard let snapshot = snapshot else { return }
-        
-        guard let removedMemberIds = removeMemberWhoHasRecent(snapshot: snapshot, memberIds: memberIdsToCreateRecent) else { return }
+    guard let firstUser = users.first,
+          let secondUser = users.last else { return }
+    
+    let memberIdsToAddRoom = [firstUser.id, secondUser.id]
+    
+    FirebaseRecentListener.shared.fetchJoiningRooms(userIds: memberIdsToAddRoom) { joiningRooms in
+    
+        guard let removedMemberIds = removeMemberWhoHasRoom(rooms: joiningRooms, memberIds: memberIdsToAddRoom) else { return }
         
         print("removed member ids", removedMemberIds)
         
+        // TODO: 現状では各ユーザーのChat作成にはバッチを使っていない
+        // しかしChannelになるとユーザー数が増えるため、バッチで対応する
+        guard let authUser = User.currentUser else { return }
+        
+        let batch = Firestore.firestore().batch()
         for userId in removedMemberIds {
-            print("creating recent with user id", userId)
+            let receiver = (userId == User.currentId) ? getReceiverFrom(users: users, authUser: authUser) : authUser
             
-            guard let authUser = User.currentUser else { return }
-            guard let receiverUser = getReceiverFrom(users: users) else { return }
-            
-            let authUserId = User.currentId
-            let sender = userId == authUserId ? authUser : receiverUser
-            let receiver = userId == authUserId ? receiverUser : authUser
-            
-            let recent = RecentChat(id: UUID().uuidString,
-                                    chatRoomId: chatRoomId,
-                                    senderId: sender.id,
-                                    senderName: sender.username,
-                                    receiverId: receiver.id,
-                                    receiverName: receiver.username,
-                                    date: Date(),
-                                    memberIds: [sender.id, receiver.id],
-                                    lastMessage: "",
-                                    unreadCounter: 0,
-                                    avatarLink: receiver.avatarLink)
-            
-            FirebaseRecentListener.shared.saveRecent(recent)
+            let room = JoiningChat(id: chatRoomId,
+                                   name: receiver.name,
+                                   lang: receiver.lang,
+                                   partnerId: receiver.id,
+                                   avatarLink: receiver.avatarLink,
+                                   lastMessage: "No messages",
+                                   unreadCounter: 0,
+                                   date: Date())
 
+            let joiningChatDocRef = FirebaseReference(.User).document(userId).collection(kCHAT).document(chatRoomId)
+            
+            do {
+                try batch.setData(from: room, forDocument: joiningChatDocRef)
+                
+            } catch {
+                print("error saving messages", error.localizedDescription)
+            }
         }
         
+        // Firestoreに反映
+        batch.commit()
+
     }
 }
 
-func removeMemberWhoHasRecent(snapshot: QuerySnapshot, memberIds: [String]) -> [String]? {
-    var memberIdsToCreateRecent = memberIds
-    
+func removeMemberWhoHasRoom(rooms: [JoiningChat], memberIds: [String]) -> [String]? {
+    var memberIdsToAddRoom = memberIds
+
     // 初回実行時は、Resentが存在しないため実行されない
-    for recentData in snapshot.documents {
-        let currentRecent = recentData.data() as Dictionary
+    for room in rooms {
         
-        guard let currentUserId = currentRecent[kSENDERID] as? String else { return nil }
-        if !memberIdsToCreateRecent.contains(currentUserId) { continue }
-        
-        let indexToRemove = memberIdsToCreateRecent.firstIndex(of: currentUserId)!
-        memberIdsToCreateRecent.remove(at: indexToRemove)
+        print("Remove member for room", room.id)
+
+        var indexToRemove: Int
+        if room.id == User.currentId {
+            // 相手のRoomということ
+            // 相手のRoomを新規作成する必要はないため、相手の
+            indexToRemove = memberIdsToAddRoom.firstIndex(where: { $0 != User.currentId })!
+            print("index 1", indexToRemove)
+
+        } else {
+            indexToRemove = memberIdsToAddRoom.firstIndex(of: User.currentId)!
+            print("index 2", indexToRemove)
+        }
+
+        memberIdsToAddRoom.remove(at: indexToRemove)
     }
-    
-    return memberIdsToCreateRecent
+
+    return memberIdsToAddRoom
 }
 
 func chatRoomIdFrom(firstUserId: String, secondUserId: String) -> String? {
-    
+
     if firstUserId.isEmpty || secondUserId.isEmpty { return nil }
-    
+
     let value = firstUserId.compare(secondUserId).rawValue
     return value < 0 ? (firstUserId + secondUserId) : (secondUserId + firstUserId)
 }
 
-func getReceiverFrom(users: [User]) -> User? {
+func getReceiverFrom(users: [User], authUser: User) -> User {
     var allUsers = users
-    guard let authUser = User.currentUser else { return nil }
-    guard let indexToRemove = allUsers.firstIndex(of: authUser) else { return nil }
+    let indexToRemove = allUsers.firstIndex(of: authUser)!
     allUsers.remove(at: indexToRemove)
-    
     return allUsers.first!
 }

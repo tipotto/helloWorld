@@ -38,29 +38,40 @@ extension ChatViewController: MessagesDataSource {
     }
     
     // Cell Buttom Label
-    // 最新のメッセージに対して、ステータス（Sent/Read）とタイムスタンプを表示
     func cellBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
         if !isFromCurrentSender(message: message) { return nil }
         
         let message = mkMessages[indexPath.section]
-        let status = indexPath.section == mkMessages.count - 1 ? "\(message.status) \(message.readDate.time())" : ""
+        let status = message.readCounter == 1 ? "\(kREAD) \(message.readDate.time())" : ""
         let font = UIFont.boldSystemFont(ofSize: 10)
         let color = UIColor.darkGray
         
         return NSAttributedString(string: status, attributes: [.font: font, .foregroundColor: color])
     }
     
+    // 最新のメッセージに対して、ステータスとタイムスタンプを表示
+//    func cellBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+//        if !isFromCurrentSender(message: message) { return nil }
+//
+//        let message = mkMessages[indexPath.section]
+//        let status = indexPath.section == mkMessages.count - 1 ? "\(message.status) \(message.readDate.time())" : ""
+//        let font = UIFont.boldSystemFont(ofSize: 10)
+//        let color = UIColor.darkGray
+//
+//        return NSAttributedString(string: status, attributes: [.font: font, .foregroundColor: color])
+//    }
+    
     // Message Buttom Label
     // 最新のメッセージ以外に対して、タイムスタンプを表示
-    func messageBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
-        if indexPath.section == mkMessages.count - 1 { return nil }
-        
-        let time = message.sentDate.time()
-        let font = UIFont.boldSystemFont(ofSize: 10)
-        let color = UIColor.darkGray
-        
-        return NSAttributedString(string: time, attributes: [.font: font, .foregroundColor: color])
-    }
+//    func messageBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+//        if indexPath.section == mkMessages.count - 1 { return nil }
+//
+//        let time = message.sentDate.time()
+//        let font = UIFont.boldSystemFont(ofSize: 10)
+//        let color = UIColor.darkGray
+//
+//        return NSAttributedString(string: time, attributes: [.font: font, .foregroundColor: color])
+//    }
 }
 
 extension ChannelChatViewController: MessagesDataSource {
@@ -94,29 +105,29 @@ extension ChannelChatViewController: MessagesDataSource {
     
     // Cell Buttom Label
     // 最新のメッセージに対して、ステータス（Sent/Read）とタイムスタンプを表示
-//    func cellBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
-//        if !isFromCurrentSender(message: message) { return nil }
-//
-//        let message = mkMessages[indexPath.section]
-//        let status = indexPath.section == mkMessages.count - 1 ? "\(message.status) \(message.readDate.time())" : ""
-//        let font = UIFont.boldSystemFont(ofSize: 10)
-//        let color = UIColor.darkGray
-//
-//        return NSAttributedString(string: status, attributes: [.font: font, .foregroundColor: color])
-//    }
-    
-    // Message Buttom Label
-    // 最新のメッセージ以外に対して、タイムスタンプを表示
-    func messageBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+    func cellBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+        if !isFromCurrentSender(message: message) { return nil }
         
-        // 最新のメッセージにもタイムスタンプを表示するためにコメントアウト
-        // 最新のメッセージにはStatus + タイムスタンプを表示する場合は以下を追加
-//        if indexPath.section == mkMessages.count - 1 { return nil }
-        
-        let time = message.sentDate.time()
+        let message = mkMessages[indexPath.section]
+        let status = message.readCounter >= 1 ? "\(kREAD)\(message.readCounter) \(message.readDate.time())" : ""
         let font = UIFont.boldSystemFont(ofSize: 10)
         let color = UIColor.darkGray
         
-        return NSAttributedString(string: time, attributes: [.font: font, .foregroundColor: color])
+        return NSAttributedString(string: status, attributes: [.font: font, .foregroundColor: color])
     }
+    
+    // Message Buttom Label
+    // 最新のメッセージ以外に対して、タイムスタンプを表示
+//    func messageBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+//
+//        // 最新のメッセージにもタイムスタンプを表示するためにコメントアウト
+//        // 最新のメッセージにはStatus + タイムスタンプを表示する場合は以下を追加
+////        if indexPath.section == mkMessages.count - 1 { return nil }
+//
+//        let time = message.sentDate.time()
+//        let font = UIFont.boldSystemFont(ofSize: 10)
+//        let color = UIColor.darkGray
+//
+//        return NSAttributedString(string: time, attributes: [.font: font, .foregroundColor: color])
+//    }
 }

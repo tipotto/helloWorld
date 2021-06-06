@@ -11,10 +11,8 @@ class ProfileTableViewController: UITableViewController {
     
     // MARK: - IBOutlets
     @IBOutlet weak var avatarImageView: UIImageView!
-    
     @IBOutlet weak var usernameLabel: UILabel!
-    
-    @IBOutlet weak var statusLabel: UILabel!
+    @IBOutlet weak var userLangLabel: UILabel!
     
     // MARK: - Vars
     var user: User?
@@ -25,7 +23,6 @@ class ProfileTableViewController: UITableViewController {
 
         navigationItem.largeTitleDisplayMode = .never
         tableView.tableFooterView = UIView()
-        
         setupUI()
     }
     
@@ -36,9 +33,9 @@ class ProfileTableViewController: UITableViewController {
         return headerView
     }
     
-    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return 20
-    }
+//    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+//        return 20
+//    }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
@@ -47,28 +44,26 @@ class ProfileTableViewController: UITableViewController {
         if indexPath.section != 1 { return }
         print("Start Chat")
         
-        guard let authUser = User.currentUser else { return }
-        guard let chatUser = user else { return }
+        guard let authUser = User.currentUser,
+              let chatUser = user,
+              let chatId = startChat(firstUser: authUser, secondUser: chatUser) else { return }
         
-        guard let chatRoomId = startChat(firstUser: authUser, secondUser: chatUser) else { return }
-        
-        let privateChatView = ChatViewController(chatId: chatRoomId,
+        let privateChatView = ChatViewController(chatId: chatId,
                                                  recipientId: chatUser.id,
-                                                 recipientName: chatUser.username)
+                                                 recipientName: chatUser.name,
+                                                 recipientLang: chatUser.lang)
         
         privateChatView.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(privateChatView, animated: true)
-        
-        
     }
-
+    
     // MARK: - SetupUI
     private func setupUI() {
         
         guard let user = user else { return }
-        title = user.username
-        usernameLabel.text = user.username
-        statusLabel.text = user.status
+        title = user.name
+        usernameLabel.text = user.name
+        userLangLabel.text = "Language: \(user.lang)"
         
         FileStorage.downloadImage(imageUrl: user.avatarLink) { [weak self] avatarImage in
             guard let strongSelf = self else { return }

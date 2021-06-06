@@ -30,8 +30,8 @@ class UserTableViewCell: UITableViewCell {
     }
     
     func configure(user: User) {
-        usernameLabel.text = user.username
-        statusLabel.text = user.status
+        usernameLabel.text = user.name
+        statusLabel.text = "Show some data..."
         setAvatar(avatarLink: user.avatarLink)
     }
     

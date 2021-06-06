@@ -13,6 +13,7 @@ target 'HelloWorld' do
   pod 'Firebase/Analytics'
   pod 'Firebase/Messaging'
   pod 'FirebaseFirestoreSwift'
+  pod 'Firebase/Functions'
 
   pod 'Gallery'
   pod 'RealmSwift'

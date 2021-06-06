@@ -15,7 +15,7 @@ class EditProfileTableViewController: UITableViewController {
     
     @IBOutlet weak var avatarImageView: UIImageView!
     
-    @IBOutlet weak var statusLabel: UILabel!
+    @IBOutlet weak var userlangLabel: UILabel!
     
     @IBOutlet weak var usernameTextField: UITextField!
     
@@ -47,9 +47,9 @@ class EditProfileTableViewController: UITableViewController {
     
     // 各セクションのヘッダーの高さを指定
     // 最初のセクションのヘッダーのみ、高さを0に設定
-//    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-//        return section == 0 ? 0.0 : 30.0
-//    }
+    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        return section == 0 ? 0.0 : 15.0
+    }
     
     // セルがクリックされた場合の処理
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -61,23 +61,20 @@ class EditProfileTableViewController: UITableViewController {
         
         // TODO: Show status view
         if !(indexPath.section == 1 && indexPath.row == 0) { return }
-        
-        print("Show status options")
-        performSegue(withIdentifier: "EditProfileToStatusSeg", sender: self)
+        performSegue(withIdentifier: "EditProfileToLangSeg", sender: self)
     }
     
     @IBAction func editButtonPressed(_ sender: Any) {
         showImageGallery()
     }
-    
 
     // MARK: - Update UI
     private func showUserInfo() {
         
         guard let user = User.currentUser else { return }
         
-        usernameTextField.text = user.username
-        statusLabel.text = user.status
+        usernameTextField.text = user.name
+        userlangLabel.text = "Language Settings"
         
         // download and set avatar image
         FileStorage.downloadImage(imageUrl: user.avatarLink) { [weak self] avatarImage in
@@ -120,7 +117,7 @@ class EditProfileTableViewController: UITableViewController {
             guard var user = User.currentUser else { return }
             user.avatarLink = avatarLink ?? ""
             saveUserLocally(user)
-            FirebaseUserListener.shared.saveUsersToFireStore(user)
+            FirebaseUserListener.shared.saveUserToFireStore(user)
             
             // Save image locally
             guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
@@ -135,14 +132,12 @@ extension EditProfileTableViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         
         if textField != usernameTextField { return true }
-        
         if textField.text == "" { return false }
-        
         guard var user = User.currentUser else { return false }
         
-        user.username = textField.text!
+        user.name = textField.text!
         saveUserLocally(user)
-        FirebaseUserListener.shared.saveUsersToFireStore(user)
+        FirebaseUserListener.shared.saveUserToFireStore(user)
         
         textField.resignFirstResponder()
         return false

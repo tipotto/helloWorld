@@ -18,6 +18,8 @@ class UsersTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        print("UsersTableViewController viewDidLoad")
+        
         refreshControl = UIRefreshControl()
         tableView.refreshControl = refreshControl
 //        createDummyUsers()
@@ -56,9 +58,9 @@ class UsersTableViewController: UITableViewController {
         return headerView
     }
     
-    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return 15.0
-    }
+//    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+//        return 15.0
+//    }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
@@ -98,8 +100,12 @@ class UsersTableViewController: UITableViewController {
     
     private func filteredContentForSearchText(searchText: String) {
         filteredUsers = allUsers.filter { user -> Bool in
-            return user.username.lowercased().contains(searchText.lowercased())
+            return user.name.lowercased().contains(searchText.lowercased())
         }
+        
+//        filteredUsers = allUsers.filter {
+//            $0.username.lowercased().contains(searchText.lowercased())
+//        }
         
         tableView.reloadData()
     }

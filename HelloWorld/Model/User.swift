@@ -11,11 +11,9 @@ import FirebaseFirestoreSwift
 
 struct User: Codable, Equatable {
     var id = ""
-    var username: String
-    var email: String
-    var pushId = ""
+    var name: String
+    var lang = ""
     var avatarLink = ""
-    var status: String
     
     static var currentId: String {
         return auth.currentUser!.uid
@@ -32,7 +30,8 @@ struct User: Codable, Equatable {
         let decoder = JSONDecoder()
         var user: User?
         do {
-            user = try decoder.decode(User.self, from: dictionary)
+            user = try decoder.decode(User.self, from: dictionary)            
+            
         } catch {
             print("Error decoding user from user defaults ", error.localizedDescription)
         }
@@ -75,10 +74,10 @@ func createDummyUsers() {
         // Firebase Storageにプロフィール画像を登録
         FileStorage.uploadImage(UIImage(named: "user\(i + 1)")!, directory: fileDirectory) { avatarLink in
             
-            let user = User(id: id, username: names[i], email: "user\(i + 1)@gmail.com", pushId: "", avatarLink: avatarLink ?? "", status: "No Status")
+            let user = User(id: id, name: names[i], avatarLink: avatarLink ?? "")
             
             // Firestoreにユーザーデータを登録
-            FirebaseUserListener.shared.saveUsersToFireStore(user)
+            FirebaseUserListener.shared.saveUserToFireStore(user)
         }
         
 //        imageIndex += 1

@@ -23,6 +23,8 @@ class MKMessage: NSObject, MessageType {
     var status: String
     var readDate: Date
     
+    var readCounter = 0
+    
     var photoItem: PhotoMessage?
     var videoItem: VideoMessage?
     var locationItem: LocationMessage?
@@ -37,6 +39,8 @@ class MKMessage: NSObject, MessageType {
         sentDate = message.date
         readDate = message.readDate
         incoming = User.currentId != message.senderId
+        
+        readCounter = message.readCounter
         
         switch message.type {
         case kTEXT:

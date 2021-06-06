@@ -15,10 +15,12 @@ class LocalMessage: Object, Codable {
     @objc dynamic var date = Date()
     @objc dynamic var senderName = ""
     @objc dynamic var senderId = ""
+    @objc dynamic var senderLang = ""
     @objc dynamic var senderInitials = ""
     @objc dynamic var readDate = Date()
     @objc dynamic var type = ""
     @objc dynamic var status = ""
+    @objc dynamic var readCounter = 0
     @objc dynamic var message = ""
     @objc dynamic var audioUrl = ""
     @objc dynamic var videoUrl = ""
@@ -26,6 +28,12 @@ class LocalMessage: Object, Codable {
     @objc dynamic var latitude = 0.0
     @objc dynamic var longitude = 0.0
     @objc dynamic var audioDuration = 0.0
+
+    // TODO: 今後追加する予定
+//    @objc dynamic var sourceLang = ""
+//    @objc dynamic var translateLang = ""
+//    @objc dynamic var sourceText = ""
+//    @objc dynamic var translatedText = ""
     
 
     override class func primaryKey() -> String? {
